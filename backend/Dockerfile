@@ -9,7 +9,7 @@ RUN npm install --omit=dev --no-audit --no-fund
 
 COPY --chown=node:node src ./src
 
-USER node
+USER 1000:1000
 
 EXPOSE 3000
 
