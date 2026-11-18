@@ -57,15 +57,27 @@ jobs:
 
       - name: Create CI environment file
         run: |
-          cat > .env <<'EOF'
-          POSTGRES_DB=taskflow
-          POSTGRES_USER=taskflow_user
-          POSTGRES_PASSWORD=ci_test_password_123
-          DATABASE_URL=postgresql://taskflow_user:ci_test_password_123@postgres:5432/taskflow
-          REDIS_URL=redis://redis:6379
-          JWT_SECRET=ci_only_secret_change_for_real_deployment
-          PORT=3000
-          EOF
+          python3 - <<'PY'
+          import secrets
+          from pathlib import Path
+
+          password = secrets.token_hex(32)
+          values = {
+              "POSTGRES_DB": "taskflow",
+              "POSTGRES_USER": "taskflow_user",
+              "POSTGRES_PASSWORD": password,
+              "DATABASE_URL": (
+                  f"postgresql://taskflow_user:{password}@postgres:5432/taskflow"
+              ),
+              "REDIS_URL": "redis://redis:6379",
+              "JWT_SECRET": secrets.token_hex(32),
+              "PORT": "3000",
+          }
+          Path(".env").write_text(
+              "".join(f"{key}={value}\n" for key, value in values.items()),
+              encoding="utf-8",
+          )
+          PY
 
       - name: Validate Docker Compose configuration
         run: docker compose config --quiet
@@ -95,7 +107,7 @@ jobs:
       - name: Check frontend response
         run: |
           for attempt in $(seq 1 20); do
-            if curl --fail --silent http://localhost:8080/ > /dev/null; then
+            if curl --fail --silent http://localhost:8081/ > /dev/null; then
               echo "Frontend is responding"
               exit 0
             fi
@@ -151,4 +163,4 @@ jobs:
 
       - name: Cleanup containers
         if: always()
-        run: docker compose down -v --remove-orphans || true
+        run: docker compose down --remove-orphans || true
